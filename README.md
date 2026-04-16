@@ -1,242 +1,163 @@
-# Smart Retail Analytics Platform
-## End-to-End Big Data Pipeline — UCI Online Retail II
+# 🛒 Smart Retail Analytics Platform
+
+[![Hadoop Ecosystem](https://img.shields.io/badge/Hadoop-3.3.6-blue.svg)](https://hadoop.apache.org/)
+[![Apache Pig](https://img.shields.io/badge/Apache_Pig-0.17.0-orange.svg)](https://pig.apache.org/)
+[![Apache Hive](https://img.shields.io/badge/Apache_Hive-3.1.3-yellow.svg)](https://hive.apache.org/)
+[![Apache HBase](https://img.shields.io/badge/Apache_HBase-2.5.8-green.svg)](https://hbase.apache.org/)
+[![Python](https://img.shields.io/badge/Python-3.12-blueviolet.svg)](https://www.python.org/)
+
+An end-to-end scalable Big Data pipeline capable of ingesting, cleaning, processing, and serving real-world retail transactions. The platform extracts critical business insights (such as total revenue, top products, customer segments, and monthly trends) using the power of distributed computing.
 
 ---
 
-## Software Status (Audit: 2026-04-08)
+## 🚀 1. Project Overview & Objectives
 
-| Component       | Status       | Version / Location                   |
-|----------------|:------------:|--------------------------------------|
-| Java (JDK)      | ✅ Installed | OpenJDK 21.0.10                      |
-| Hadoop (HDFS, YARN, MapReduce) | ✅ Installed | 3.3.6 @ `~/hadoop-3.3.6` |
-| Apache Pig      | ❌ Missing   | Needs download → `setup/install_missing.sh` |
-| Apache Hive     | ❌ Missing   | Needs download → `setup/install_missing.sh` |
-| HBase           | ❌ Missing   | Needs download → `setup/install_missing.sh` |
-| ZooKeeper       | ❌ Missing   | Bundled inside HBase (standalone mode) |
-| Python 3        | ✅ Installed | 3.12.3                               |
-| pip3            | ✅ Installed | 24.0                                 |
-| SSH             | ✅ Installed | OpenSSH 9.6p1                        |
-| pandas          | ✅ Installed | (just installed)                     |
-| matplotlib      | ✅ Installed | (just installed)                     |
-| seaborn         | ✅ Installed | (just installed)                     |
-| wget / curl     | ✅ Installed | Available                            |
+**Domain:** Big Data / Retail Analytics  
+**Why this project?** Traditional RDBMS (like MySQL) struggle when data scales to gigabytes or terabytes. This project demonstrates how the **Hadoop Ecosystem** handles massive datasets natively using distributed storage (HDFS) and parallel processing (MapReduce/Pig/Hive/HBase). 
+
+The platform also includes a seamless **Single Page Application (SPA)** front-end to provide an interactive administrative dashboard.
 
 ---
 
-## Dataset
+## 📊 2. Dataset Details
+
+*   **Source:** [UCI Machine Learning Repository (Online Retail II Dataset)](https://archive.ics.uci.edu/dataset/502/online+retail+ii)
+*   **Original Size:** 1,067,371 rows across 2 Excel sheets.
+*   **Big Data Simulation:** The original dataset was cleaned and scaled up (duplicated and randomized with ±2% price variation) to **~800+ MB / 8 Million rows** to mimic real Big Data volume. This triggers HDFS to split data into multiple 128MB blocks.
 
 | File | Rows | Size | Description |
 |------|-----:|-----:|-------------|
 | `dataset/retail_raw.csv` | 1,067,371 | ~150 MB | Original UCI download |
 | `dataset/retail_cleaned.csv` | **805,549** | ~110 MB | After cleaning (removed returns/nulls) |
-| `dataset/retail_scaled.csv` | **8,055,490** | **780 MB** | 10× scaled for Big Data simulation |
-| `dataset/retail_hdfs_ready.csv` | 8,055,490 | 780 MB | No header — ready for HDFS upload |
-
-**Source**: [UCI Online Retail II](https://archive.ics.uci.edu/dataset/502/online+retail+ii) — free, public domain
+| `dataset/retail_hdfs_ready.csv` | **8,055,490** | **780 MB** | 10× scaled for Big Data simulation (No header) |
 
 ---
 
-## Project Folder Structure
+## 🏗️ 3. Architecture & Working Principle
+
+Here is exactly how data flows from raw origin to the final dashboard:
+
+1. **Python + Pandas (Data Preprocessing):** Reads the raw dataset, handles missing values, and scales the data by 10x to simulate Big Data (`retail_hdfs_ready.csv`).
+2. **HDFS (The Storage Layer):** Stores the large CSV across multiple DataNodes in 128MB chunks/blocks.
+3. **Apache Pig (MapReduce ETL Layer):** Acts as an abstraction over Java MapReduce. It runs filtering, aggregations, and RFM segmentation directly on HDFS in parallel.
+4. **Apache Hive (Data Warehousing Layer):** Provides a SQL-like interface using HiveQL. Features ORC Format & Snappy Compression, along with Partitioning (by `year_month`), to scan data effectively and run comprehensive business intelligence queries.
+5. **Apache HBase + ZooKeeper (Real-time Layer):** The NoSQL column-family database running on HDFS, featuring O(1) lookups for Real-time metrics based on row keys like `product_id`. ZooKeeper coordinates the HBase cluster.
+6. **Frontend SPA Dashboard:** A Single Page App (SPA) displaying live MapReduce simulations, admin analytical filters, and dataset previews using HTML/CSS/JS and Chart.js.
+
+---
+
+## 📂 4. Project Folder Structure
 
 ```
 SMART RETAIL ANALYTICS PLATFORM/
 ├── dataset/
-│   ├── generate_dataset.py       # (old synthetic generator — replaced)
-│   ├── preprocess_real_data.py   # ← Real UCI data preprocessor
-│   ├── retail_cleaned.csv        # ← Clean data (805K rows)
-│   └── retail_hdfs_ready.csv     # ← HDFS upload file (8M rows)
-│
+│   ├── preprocess_real_data.py   # Python script to clean & scale UCI data
+│   └── retail_hdfs_ready.csv     # 8M rows HDFS-ready
 ├── setup/
-│   ├── install_missing.sh        # ← Install Pig/Hive/HBase (smart, skips existing)
-│   └── start_all_services.sh     # ← Start/stop all services
-│
+│   ├── install_missing.sh        # Smart script to install Pig/Hive/HBase 
+│   └── start_all_services.sh     # Automates service bootup
 ├── hdfs_ops/
-│   └── hdfs_upload.sh            # ← Upload dataset to HDFS
-│
+│   └── hdfs_upload.sh            # Upload dataset to HDFS 
 ├── pig_scripts/
-│   ├── 01_clean_transform.pig    # ETL: clean, transform, type-cast
-│   ├── 02_top_products.pig       # Aggregation: top 20 products by revenue
-│   ├── 03_revenue_by_category.pig # Revenue by category, month, city
-│   ├── 04_customer_segmentation.pig # RFM customer segments
-│   └── run_pig_etl.sh            # ← Run all Pig scripts in order
-│
+│   ├── 01_clean_transform.pig    # Pipeline step: Clean, transform, type-cast
+│   ├── 02_top_products.pig       # Pipeline step: Top 20 products
+│   ├── 03_revenue_by_category.pig # Pipeline step: Revenue grouping
+│   ├── 04_customer_segmentation.pig # Pipeline step: RFM segmentation
+│   └── run_pig_etl.sh            # Execute all Pig scripts globally
 ├── hive_scripts/
-│   ├── 01_create_tables.hql      # Database + 4 Hive tables (ORC, partitioned)
-│   ├── 02_analytics_queries.hql  # 10 HiveQL analytics queries
-│   └── run_hive.sh               # ← Execute all Hive scripts
-│
+│   ├── 01_create_tables.hql      # DB + Hive table setup (ORC, Partitioned)
+│   ├── 02_analytics_queries.hql  # 10 HiveQL advanced business queries
+│   └── run_hive.sh               # Execute Hive scripts
 ├── hbase_scripts/
-│   └── hbase_operations.py       # Create tables, bulk load, real-time demos
-│
+│   └── hbase_operations.py       # Create tables, load data, real-time fetching
 ├── python_viz/
-│   ├── generate_charts.py        # ← Generates 5 dark charts + data.js
-│   ├── pig_results/              # Pig output (CSV) collected here
-│   └── charts/                   # Generated PNG charts
-│       ├── 01_top_products.png
-│       ├── 02_revenue_by_category.png
-│       ├── 03_monthly_trends.png
-│       ├── 04_customer_segments.png
-│       └── 05_city_category_heatmap.png
-│
+│   ├── generate_charts.py        # Chart data generator -> Python to JS
+│   └── charts/                   # Resulting analytical PNG outputs
 ├── dashboard/
-│   ├── index.html                # ← Interactive web dashboard
-│   └── data.js                   # Auto-generated chart data
-│
+│   ├── index.html                # Interactive UI Single-Page Application (SPA)
+│   └── data.js                   # Analytical data bound to the UI 
 └── docs/
-    ├── README.md                 # This file
-    └── viva_questions.py         # 11 Q&A + 2-min presentation script
+    ├── README.md                 # You are here!
+    └── viva_questions.py         # Q&A Viva presentation prep tools
 ```
 
 ---
 
-## Step-by-Step Execution Guide
+## ⚙️ 5. Step-by-Step Execution Guide
 
-### Phase 1: Install Missing Components
-
+### Phase 1: Setup & Starting Services
 ```bash
-# Install Pig, Hive, HBase (skips already-installed Hadoop)
-bash "setup/install_missing.sh"
+# Install missing components
+bash "setup/install_missing.sh" && source ~/.bashrc
 
-# Reload environment variables
-source ~/.bashrc
-```
-
-### Phase 2: Start Services
-
-```bash
-# Start HDFS + YARN
+# Start HDFS & YARN
 $HADOOP_HOME/sbin/start-dfs.sh
 $HADOOP_HOME/sbin/start-yarn.sh
 
-# Start HBase (includes embedded ZooKeeper)
+# Start HBase
 $HBASE_HOME/bin/start-hbase.sh
-
-# Verify — should show: NameNode, DataNode, HMaster
-jps
 ```
 
-### Phase 3: HDFS Operations
-
+### Phase 2: HDFS Operations
 ```bash
-# Create HDFS directory tree + upload 8M row dataset
+# Upload scaled dataset to HDFS
 bash hdfs_ops/hdfs_upload.sh
-
-# Verify
-hdfs dfs -ls /retail_platform/
-hdfs dfs -du -h /retail_platform/raw_data/
 ```
 
-### Phase 4: Apache Pig ETL
-
+### Phase 3: Apache Pig & MapReduce ETL
 ```bash
-# Run all 4 Pig scripts via MapReduce
+# Run all Pig ETL MapReduce Tasks
 bash pig_scripts/run_pig_etl.sh
-
-# Or run individually:
-pig -x mapreduce -f pig_scripts/01_clean_transform.pig
-pig -x mapreduce -f pig_scripts/02_top_products.pig
-pig -x mapreduce -f pig_scripts/03_revenue_by_category.pig
-pig -x mapreduce -f pig_scripts/04_customer_segmentation.pig
 ```
 
-### Phase 5: Apache Hive Analytics
-
+### Phase 4: Apache Hive Analytics
 ```bash
-# Initialize metastore (first time only)
+# Format schema (first time only)
 $HIVE_HOME/bin/schematool -initSchema -dbType derby
 
-# Create tables and run all queries
+# Execute structured queries
 hive -f hive_scripts/01_create_tables.hql
 hive -f hive_scripts/02_analytics_queries.hql
-
-# Or run a single query interactively:
-hive
-> USE retail_analytics;
-> SELECT category, ROUND(SUM(price*quantity),2) as revenue
->   FROM retail_transactions
->   GROUP BY category ORDER BY revenue DESC;
 ```
 
-### Phase 6: HBase Real-Time Layer
-
+### Phase 5: HBase Real-Time Interactions
 ```bash
-# Start HBase Thrift server (for Python client)
 $HBASE_HOME/bin/hbase thrift start &
-sleep 10
-
-# Create tables, load data, run lookup demos
 python3 hbase_scripts/hbase_operations.py
-
-# Interactive HBase shell:
-$HBASE_HOME/bin/hbase shell
-> list
-> scan 'retail_products', {LIMIT => 5}
-> get 'retail_customers', 'U13085'
 ```
 
-### Phase 7: Visualization
-
+### Phase 6: Visualization and SPA Dashboard
 ```bash
-# Already done! Charts are in python_viz/charts/
-# To regenerate:
+# Run charts generator
 python3 python_viz/generate_charts.py
 
-# Open dashboard:
+# Launch Front-End Application
 xdg-open dashboard/index.html
-# Or: firefox dashboard/index.html
 ```
 
 ---
 
-## Key Analytical Insights
+## 📈 6. Key Analytical Insights
 
 | Insight | Value |
 |---------|-------|
-| Total Revenue | £17.7M (Dec 2009 – Dec 2011) |
-| Best-Selling Product | Regency Cakestand 3 Tier |
-| Top Category | General Merchandise (~39%) |
-| Peak Month | November 2011 (holiday seasonality) |
-| Avg Order Value | £22.03 |
-| Unique Customers | 5,877 |
-| VIP Customers | ~3% generate >20% of revenue |
+| **Total Revenue** | £17.7M (Dec 2009 – Dec 2011) |
+| **Best-Selling Product** | Regency Cakestand 3 Tier |
+| **Top Category** | General Merchandise (~39%) |
+| **Peak Season** | November 2011 (holiday seasonality) |
+| **Avg Order Value** | £22.03 |
+| **Unique Customers** | 5,877 |
+| **VIP Base** | ~3% of VIPs generate >20% of total revenue |
 
 ---
 
-## Common Errors & Fixes
+## 🛠️ 7. Software Status & Troubleshooting
 
-| Error | Cause | Fix |
-|-------|-------|-----|
-| `JAVA_HOME not set` | Env var missing | `source ~/.bashrc` |
-| `Connection refused 9000` | HDFS not running | `$HADOOP_HOME/sbin/start-dfs.sh` |
-| `Safe mode is ON` | NameNode in safe mode | `hdfs dfsadmin -safemode leave` |
-| `pig: command not found` | Pig not in PATH | `export PATH=$PATH:$PIG_HOME/bin` |
-| `hive: command not found` | Hive not in PATH | `export PATH=$PATH:$HIVE_HOME/bin` |
-| `HBase Thrift refused` | Thrift not started | `hbase thrift start &` |
-| `ModuleNotFoundError: happybase` | Python lib missing | `pip3 install happybase --break-system-packages` |
-| `NameNode not formatted` | First-time setup | `hdfs namenode -format` |
-| `Pig compilation error` | Wrong HDFS path | Verify with `hdfs dfs -ls /retail_platform/` |
+| Component | Status | Location |
+|-----------|:------:|----------|
+| Java (JDK) | OpenJDK 21.0.10 | Installed |
+| Hadoop | 3.3.6 | `~/hadoop-3.3.6` |
+| Python 3 | 3.12.3 | Installed (Pandas, Matplotlib, Seaborn) |
 
----
-
-## Viva Preparation
-
-```bash
-python3 docs/viva_questions.py
-```
-
-Topics covered:
-1. Dataset selection rationale
-2. HDFS internals (blocks, replication, NameNode vs DataNode)
-3. Pig Latin ETL walkthrough
-4. Pig vs Hive — when to use which
-5. Hive partitioning & bucketing design
-6. HBase vs RDBMS comparison
-7. HBase row-key strategy
-8. ZooKeeper's role in the cluster
-9. Big Data scaling methodology
-10. Top insights from analysis
-11. Production-readiness improvements
-
----
-
-*Smart Retail Analytics Platform — Built with Hadoop 3.3.6 ecosystem*
+***Common fix if tools miss PATH:***
+Ensure `.bashrc` represents the loaded states via `source ~/.bashrc`. For Hadoop issues, run `jps` to verify NameNode and DataNode are active.
