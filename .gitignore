@@ -1,3 +1,6 @@
 docs/PPT_CONTENT.md
 docs/PROJECT_DOCUMENTATION_AND_VIVA.md
 docs/viva_questions.py
+dataset/*.csv
+dataset/*.zip
+dataset/extracted/
